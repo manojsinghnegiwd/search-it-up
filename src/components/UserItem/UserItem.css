@@ -1,0 +1,13 @@
+.card {
+    box-shadow: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.card:hover {
+    background-color: beige;
+}
+
+.card.selected {
+    background-color: beige;
+}

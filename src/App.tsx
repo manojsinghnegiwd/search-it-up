@@ -1,69 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useEffect, useCallback } from 'react';
+import { User } from './types';
+import searchRecommendation from './RecommendationClass';
+import { connect } from 'react-redux';
+import { RootState } from './redux/store';
+import { fetchApiRequest } from './redux/userSaga';
 
-interface Geolocation {
-  lat: string,
-  lng: string
+import "./App.css"
+import UsersList from './components/UserList/UserList';
+
+interface AppProps {
+  users: User[],
+  fetchUsers: () => void
 }
 
-interface Address {
-  street: string,
-  suite: string,
-  city: string,
-  zipcode: string,
-  geo: Geolocation
-}
+const App: React.FC<AppProps> = ({
+  users,
+  fetchUsers
+}: AppProps) => {
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [selectedUserId, setSelectedUserIndex] = useState<number | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [openUserList, setOpenUserList] = useState<boolean>(true)
 
-interface Company {
-  name: string,
-  catchPhrase: string,
-  bs: string
-}
+  const recommendedUsers = searchRecommendation.query(searchTerm, users)
 
-interface User {
-  id: number,
-  name: string,
-  username: string,
-  email: string,
-  address: Address ,
-  phone: string,
-  website: string,
-  company: Company
-}
+  const onSelectUser = useCallback((user: User) => {
+    setSearchTerm(user.name)
+    setSelectedUserIndex(null)
+    setOpenUserList(false)
+  }, [setSearchTerm, setOpenUserList, setSelectedUserIndex])
 
-const useFetchUsers = () => {
-  const [users, setUsers] = useState<User[]>([])
+  const navigate = useCallback((e) => {
+    switch (e.key) {
+      case "ArrowUp": {
+        if (selectedUserId !== null && selectedUserId - 1 > -1) {
+          setSelectedUserIndex(selectedUserId - 1)
+        } else {
+          setSelectedUserIndex(0)
+        }
+
+        e.preventDefault()
+        return
+      }
+      case "ArrowDown": {
+        if (selectedUserId === null) {
+          setSelectedUserIndex(0)
+          return
+        }
+
+        if (selectedUserId + 1 < recommendedUsers.length) {
+          setSelectedUserIndex(selectedUserId + 1)
+        }
+
+        e.preventDefault()
+        return
+      }
+      case "Enter": {
+
+        if (selectedUser) {
+          onSelectUser(selectedUser)
+          e.preventDefault()
+        }
+
+        return
+      }
+      default: 
+        return
+    }
+  }, [selectedUserId, setSelectedUserIndex, recommendedUsers, selectedUser, onSelectUser])
 
   useEffect(() => {
-    fetch("https://jsonplaceholder.typicode.com/users")
-      .then(response => response.json())
-      .then(json => setUsers(json))
-      .catch(error => console.log(error))
-  }, [])
+    fetchUsers()
+  }, [fetchUsers])
 
-  return users
-}
+  useEffect(() => {
+    if (selectedUserId === null) {
+      setSelectedUser(null)
+      return
+    }
 
-function App() {
-
-  const [searchTerm, setSearchTerm] = useState<string>("")
-  const users: User[] = useFetchUsers()
-  const recommendedUsers = 
+    setSelectedUser(recommendedUsers[selectedUserId])
+  }, [selectedUserId, recommendedUsers])
 
   return (
     <div className="App">
-      <input
-        onChange={e => setSearchTerm(e.target.value)}
-        value={searchTerm}
-      />
-      {
-        users.map(
-          (user: User) => <li key={user.id}>{user.name}</li>
-        )
-      }
+      <div className="search-input-container">
+        <div className="field">
+          <div className="control">
+            <input
+              className="input is-medium"
+              type="text"
+              placeholder="Search users"
+              onChange={e => {
+                setSearchTerm(e.target.value)
+                setSelectedUserIndex(null)
+                setSelectedUser(null)
+                setOpenUserList(true)
+              }}
+              value={searchTerm}
+              onKeyDown={navigate}
+            />
+          </div>
+        </div>
+        { openUserList && recommendedUsers.length ?
+            <UsersList
+              users={recommendedUsers}
+              selectedUser={selectedUser}
+              onSelect={onSelectUser}
+            />:
+            null
+        }
+      </div>
+      <a rel="noopener noreferrer" className="github-link" target="_blank" href="https://github.com/manojsinghnegiwd">
+        <b>Checkout my github</b>
+      </a>
     </div>
   );
 }
 
-export default App;
+export default connect(
+  ({ userReducer }: RootState) => ({ users: userReducer.users }),
+  (dispatch) => ({
+    fetchUsers: () => dispatch(fetchApiRequest())
+  })
+)(App);

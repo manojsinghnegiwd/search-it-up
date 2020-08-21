@@ -1,23 +1,24 @@
-interface SearchResult {
-  term: string
-  type: string
-}
+import { uniqBy } from "lodash"
+import { User } from "./types"
+
+type SearchResult = User
 
 type SearchResults = SearchResult[]
 
-type SearchResultProvider = (searchTerm: string) => SearchResults
+type SearchResultProvider = (searchTerm: string, data: any[]) => SearchResults
 
 class SearchRecSys {
     
   private providers: SearchResultProvider[] = []
   
-  query: SearchResultProvider = (searchTerm) => {
+  query: SearchResultProvider = (searchTerm, data) => {
     const results = this.providers.reduce(
       (searchResults: SearchResults, item) => {
-        return searchResults.concat(item(searchTerm))
+        return searchResults.concat(item(searchTerm, data))
       },[]
     )
-    return results
+
+    return uniqBy(results, 'id')
   }
   
   loadProviders = (
@@ -27,62 +28,17 @@ class SearchRecSys {
   }
 }
 
-const search = new SearchRecSys()
+const searchRecommendation = new SearchRecSys()
 
-const searchUsingTerm: SearchResultProvider = (searchTerm) => {
-  const data = [
-    {
-      "term": "business",
-      "type": "term"
-    },
-    {
-      "term": "business tips",
-      "type": "term"
-    },
-    {
-      "term": "social media",
-      "type": "term"
-    },
-    {
-      "term": "social media marketing",
-      "type": "term"
-    }
-  ]
-  
-  const results = data.filter(
-    item => item.term.includes(searchTerm)
-  )
+const searchUsingKey = (key: string): SearchResultProvider =>
+  (searchTerm: string, data: any[]): SearchResults => {
+    const results = data.filter(
+      item => item[key].toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    return results
+  }
 
-  return results
-}
-  
-  // const searchUsingType: SearchResultProvider = (searchTerm) => {
-  //   const data = [
-  //     {
-  //       "term": "facebook",
-  //       "type": "social"
-  //     },
-  //     {
-  //       "term": "twitter",
-  //       "type": "social"
-  //     },
-  //     {
-  //       "term": "Warren buffet",
-  //       "type": "business"
-  //     }
-  //   ]
-    
-  //   const results = data.filter(
-  //     item => item.type.includes(searchTerm)
-  //   )
-    
-  //   return results
-  // }
-  
-  // search.loadProviders(searchUsingTerm)
-  
-  // search.loadProviders(searchUsingType)
-  
-  // search.query("business")
+searchRecommendation.loadProviders(searchUsingKey("name"))
+searchRecommendation.loadProviders(searchUsingKey("username"))
 
-export default SearchRecSys
+export default searchRecommendation
